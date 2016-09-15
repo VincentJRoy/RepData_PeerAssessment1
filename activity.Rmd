@@ -1,0 +1,183 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+author: "Vincent Roy"
+date: "September 12, 2016"
+output: html_document
+keep_md: true
+---
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the “quantified self” movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+The data for this assignment can be downloaded from the course web site:
+
+    Dataset: Activity monitoring data [52K]
+
+
+The variables included in this dataset are:
+
+    steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+    date: The date on which the measurement was taken in YYYY-MM-DD format
+    interval: Identifier for the 5-minute interval in which measurement was taken
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+# Loading and preprocessing the data
+```{r setup, include=FALSE }
+    library(ggplot2)
+    library(dplyr)
+    library(grid)
+    library(gridExtra)
+    
+    fileUrl <- "activity.csv"
+    
+    if (!file.exists("activity.csv")) {
+        unzip("activity.zip")
+    }
+    activity <- read.csv(file = fileUrl, head = TRUE,sep = ",", 
+                    na.strings ="NA",
+                    colClass = c('integer','Date','integer'))
+    summary(activity)
+    str(activity)
+    knitr::opts_chunk$set(echo = TRUE)
+```
+# What is mean total number of steps taken per day? 
+1. Calculate the total number of steps taken per day(ignoring NA's)
+2. Make a histogram of the total number of steps taken each day
+3. Calculate and report the mean and median of the total number ##    of steps taken per day
+```{r  }
+        steps.sum <- aggregate(activity$steps, by=list(activity$date), FUN=sum)
+        head(steps.sum)
+    # Rename the attributes
+        names(steps.sum) <- c("date", "total.steps")    
+        summary(steps.sum)
+        p.steps.sum <- ggplot(data = steps.sum, mapping = aes(x = total.steps)) +         
+            geom_histogram(fill = "yellow", colour = "black", bins = 30) +
+        scale_x_continuous("Steps per Day") + 
+        scale_y_continuous("Frequency") + ggtitle("Total Number of Steps Taken Each Day")
+        print(p.steps.sum)
+   
+    knitr::opts_chunk$set(echo = TRUE)
+```
+# Mean and median of steps taken per day:
+
+```{r  }
+    mean(steps.sum$total.steps, na.rm = TRUE)
+    median(steps.sum$total.steps, na.rm = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+```
+# What is the average daily activity pattern?
+1. A time series is plotted (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+    
+```{r activity }
+    steps.int <- aggregate(steps ~ interval, activity, mean)
+    head(steps.int)
+    p.steps.int <-  ggplot(steps.int, aes(x = interval, y = steps)) + geom_line() + labs(title = "Time Series Plot 5-minute Intervals", x = "5-Minute Intervals", y = "Average Number Steps")
+    print(p.steps.int)
+```   
+# Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r  }
+   steps.int$interval[which.max(steps.int$steps)]
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Imputing missing values
+
+(Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.)
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+```{r  }
+summary(activity)
+sum(is.na(activity$steps))
+knitr::opts_chunk$set(echo = TRUE)
+```
+# The dataset has 2304 NA's = 13.1% of the intervals
+# Replace the missing data with the mean for the each interval
+```{r  }
+    activity2 <- activity
+    nas <- is.na(activity2$steps)
+    head(nas)
+    steps.int2 <- tapply(activity2$steps, activity2$interval, mean, na.rm=TRUE, simplify=TRUE)
+    activity2$steps[nas] <- steps.int2[as.character(activity2$interval[nas])]
+    head(activity2)
+    sum(is.na(activity2$steps)) # confirm NA replacements
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Total number of steps taken per day and plot histogram (NA's filled) :
+```{r  }    
+    steps.sum2 <- aggregate(activity2$steps, by=list(activity2$date), FUN=sum)
+    names(steps.sum2) <- c("date", "total.steps")
+    head(steps.sum2)
+    par(mfrow=c(1,2))
+    # Orignal histogram with NA's removed:
+    p1 <- ggplot(data = steps.sum, mapping = aes(x = total.steps)) +         
+            geom_histogram(fill = "yellow", colour = "black", bins = 30) +
+        scale_x_continuous("Steps per Day") + 
+        scale_y_continuous("Frequency") + ggtitle("Total Steps Per Day (NA's removed)") +
+        geom_vline(xintercept = mean(steps.sum2$total.steps), linetype="dotted", color = "red", size=1.5)
+        #print(p.steps.sum)
+        
+    # Histogram with NA's replaced:    
+    p2 <- ggplot(data = steps.sum2, mapping = aes(x = total.steps)) +         
+            geom_histogram(fill = "blue", colour = "black", bins = 30) +
+            scale_x_continuous("Steps per Day") + 
+            scale_y_continuous("Frequency") + ggtitle("Total Steps Per Day (NA's replaced with mean)") +
+        geom_vline(xintercept = mean(steps.sum2$total.steps), linetype="dotted", color = "red", size=1.5)
+    #print(p.steps.sum2)
+    grid.arrange(p1, p2, nrow = 2, heights = c(0.45, 0.65))
+knitr::opts_chunk$set(echo = TRUE)
+```
+# What is the impact of imputing missing data on the estimates of the total daily number of steps? 
+There is a higher frequency of data around the mean number of steps with the filled dataset. 
+
+# Do these values differ from the estimates from the first part of the assignment? 
+As per the results, the mean is now equal the median whereas in the first set the mean was slighly less than the median.
+Mean and median of steps taken per day of filled df:
+```{r }
+    mean(steps.sum2$total.steps)
+    median(steps.sum2$total.steps)
+    mean(steps.sum2$total.steps)-mean(steps.sum2$total.steps)
+    median(steps.sum2$total.steps)-median(steps.sum2$total.steps)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+## What are the differences in activity patterns between weekdays and weekends?
+Solution:
+1. Insert column that indicates the day of the week
+2. Subset the table into weekends (Saturday and Sunday) and weekdays (Monday through Friday).
+3. Average steps per interval for each data set.
+4. Side by side plots for comparison. 
+
+There seems to be one peak steps intevals cluster during the week, whereas on the weekend the peak step inteval clustering is distributed across the weekend. Further investigation into the type of stepping activity is warranted to understand the difference.
+```{r  }
+    activity3 <- activity2
+    activity3$weekday<-weekdays(activity2$date)
+    activity3$daytype<- as.factor(c("weekend", "weekday"))
+    activity3[activity3$weekday == "Sunday" | activity3$weekday == "Saturday" ,5]<- factor("weekend")
+    activity3[!(activity3$weekday == "Sunday" | activity3$weekday == "Saturday"),5]<- factor("weekday")
+    str(activity3)
+ # Subset dataset by weekend and weekday
+    activity3we <- subset(activity3, daytype == "weekend")
+    head(activity3we)
+    activity3wd <- subset(activity3, daytype == "weekday")
+    head(activity3wd)
+ #  combine to one dataset
+    activity3all <-  rbind(activity3wd, activity3we)
+ # Aggregate steps by 5-minute intervals averaged by weekend or weekday in each data subset
+    steps.int.dt <- aggregate(steps ~ interval + daytype, activity3all, mean)
+    steps.int.we <- aggregate(steps ~ interval + daytype, activity3we, mean)
+    steps.int.wd <- aggregate(steps ~ interval + daytype, activity3wd, mean)
+    
+#   Plot time series plot side by side
+    p3 <- ggplot(steps.int.dt, aes(x=interval, y=steps)) + 
+        geom_line(color="blue") + 
+        facet_wrap(~ daytype, nrow=2, ncol=1) +
+        labs(x="5-min Interval", y="Number of steps", title = "Comparitive Time Series Weekday and Weekend ") +
+        theme_bw()
+    print(p3)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+    
+
+
